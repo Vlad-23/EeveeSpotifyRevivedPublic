@@ -46,14 +46,10 @@ jobs:
           # GNU Make for parallel builds
           echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
           # cyan + ipapatch for IPA injection (our sideload pipeline)
-          python3 -m pip install --upgrade --force-reinstall https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip --break-system-packages
-          wget https://github.com/asdfzxcvbn/ipapatch/archive/main.zip -O ipapatch.zip
-          unzip ipapatch.zip
-          cd ipapatch-main
-          # Make the script executable and move it to a folder in your PATH
-          chmod +x ipapatch.py
-          sudo cp ipapatch.py /usr/local/bin/ipapatch
-          cd ..
+          # 1. Install pyzule-rw (still needed for the main injection)
+          python3 -m pip install --upgrade https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip --break-system-packages
+          # 2. Grab the latest 'cyan' tool which replaces the old ipapatch script logic
+          python3 -m pip install --upgrade https://github.com/asdfzxcvbn/pyzule/archive/main.zip --break-system-packages
           
       - name: Build EeveeSwiftProtobuf.framework from source
         env:
