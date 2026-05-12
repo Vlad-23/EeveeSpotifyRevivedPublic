@@ -48,9 +48,7 @@ jobs:
           # cyan + ipapatch for IPA injection (our sideload pipeline)
           # 1. Install pyzule-rw (still needed for the main injection)
           python3 -m pip install --upgrade https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip --break-system-packages
-          # 2. Grab the latest 'cyan' tool which replaces the old ipapatch script logic
-          python3 -m pip install --upgrade https://github.com/asdfzxcvbn/pyzule/archive/main.zip --break-system-packages
-          
+              
       - name: Build EeveeSwiftProtobuf.framework from source
         env:
           SWIFTPROTOBUF_VERSION: ${{ env.SWIFTPROTOBUF_VERSION }}
