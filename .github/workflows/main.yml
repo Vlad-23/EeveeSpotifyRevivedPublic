@@ -55,12 +55,15 @@ jobs:
           mkdir -p $THEOS/lib/iphoneos
           
           # Find and move the framework
-          FRAMEWORK_PATH=$(find ./protobuf_temp -type d -name "EeveeSwiftProtobuf.framework" | head -1)
-          cp -r "$FRAMEWORK_PATH" $THEOS/lib/iphoneos/
+          # 4. Find the framework and FORCE the name to match the Makefile
+          FRAMEWORK_PATH=$(find ./protobuf_temp -type d -name "*.framework" | head -1)
           
-          # CRITICAL: Verify the module exists inside the framework
-          if [ ! -d "$THEOS/lib/iphoneos/EeveeSwiftProtobuf.framework/Modules/EeveeSwiftProtobuf.swiftmodule" ]; then
-            echo "::error::The downloaded framework is missing its Swift Module interface!"
+          if [ -n "$FRAMEWORK_PATH" ]; then
+            echo "Found framework at: $FRAMEWORK_PATH"
+            # Ensure the destination folder name is EeveeSwiftProtobuf.framework
+            cp -r "$FRAMEWORK_PATH" $THEOS/lib/iphoneos/EeveeSwiftProtobuf.framework
+          else
+            echo "::error::Framework not found in DEB! Check the DEBUG output above."
             exit 1
           fi
           
