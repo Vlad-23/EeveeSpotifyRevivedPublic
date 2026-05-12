@@ -49,34 +49,20 @@ jobs:
           # 1. Install pyzule-rw (still needed for the main injection)
           python3 -m pip install --upgrade https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip --break-system-packages
           
-           # 1. Download and extract
           wget https://github.com/whoeevee/EeveeSpotifyReborn/releases/download/swift6.2.2/org.swift.protobuf.swiftprotobuf_1.29.0_iphoneos-arm64.deb
           dpkg-deb -x org.swift.protobuf.swiftprotobuf_1.29.0_iphoneos-arm64.deb ./protobuf_temp
           
-          # 2. DEBUG: See exactly what is inside the deb
-          echo "--- DEB CONTENTS ---"
-          find ./protobuf_temp -maxdepth 4
-          
-          # 3. Setup Theos paths
           mkdir -p $THEOS/lib/iphoneos
-          mkdir -p $THEOS/include/EeveeSwiftProtobuf
           
-          # 4. Find the framework using a more robust search
-          # Using -path allows us to find the folder even if it's deeply nested
-          FRAMEWORK_PATH=$(find ./protobuf_temp -type d -name "*.framework" | head -1)
+          # Find and move the framework
+          FRAMEWORK_PATH=$(find ./protobuf_temp -type d -name "EeveeSwiftProtobuf.framework" | head -1)
+          cp -r "$FRAMEWORK_PATH" $THEOS/lib/iphoneos/
           
-          if [ -n "$FRAMEWORK_PATH" ]; then
-            echo "Found framework at: $FRAMEWORK_PATH"
-            cp -r "$FRAMEWORK_PATH" $THEOS/lib/iphoneos/
-          else
-            echo "::error::Framework not found in DEB! Check the DEBUG output above."
+          # CRITICAL: Verify the module exists inside the framework
+          if [ ! -d "$THEOS/lib/iphoneos/EeveeSwiftProtobuf.framework/Modules/EeveeSwiftProtobuf.swiftmodule" ]; then
+            echo "::error::The downloaded framework is missing its Swift Module interface!"
             exit 1
           fi
-          
-          # 5. Move headers
-          find ./protobuf_temp -name "*.h" -exec cp {} $THEOS/include/EeveeSwiftProtobuf/ \;
-
-          
           
       - name: Build EeveeSwiftProtobuf.framework from source
         env:
