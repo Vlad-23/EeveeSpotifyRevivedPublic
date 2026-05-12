@@ -48,18 +48,17 @@ jobs:
           # cyan + ipapatch for IPA injection (our sideload pipeline)
           # 1. Install pyzule-rw (still needed for the main injection)
           python3 -m pip install --upgrade https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip --break-system-packages
-
-          # Download and extract the missing Protobuf dependency
+          
+          # 2. Download and extract the missing Protobuf dependency
           wget https://github.com/whoeevee/EeveeSpotifyReborn/releases/download/swift6.2.2/org.swift.protobuf.swiftprotobuf_1.29.0_iphoneos-arm64.deb
           dpkg-deb -x org.swift.protobuf.swiftprotobuf_1.29.0_iphoneos-arm64.deb ./protobuf_temp
           
-          # Inject the module into the Theos vendor library path so 'make' finds it automatically
-          mkdir -p $THEOS/lib/iphoneos
-          cp -r ./protobuf_temp/usr/lib/* $THEOS/lib/ 2>/dev/null || true
-          
-          # Also copy headers/modules to the include directory
+          # 3. Inject the module into the Theos vendor paths
+          # This guarantees 'make' sees the module during compilation
           mkdir -p $THEOS/include
+          mkdir -p $THEOS/lib/iphoneos
           cp -r ./protobuf_temp/usr/include/* $THEOS/include/ 2>/dev/null || true
+          cp -r ./protobuf_temp/usr/lib/* $THEOS/lib/ 2>/dev/null || true
 
           
           
