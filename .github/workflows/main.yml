@@ -46,7 +46,7 @@ jobs:
           # GNU Make for parallel builds
           echo "$(brew --prefix make)/libexec/gnubin" >> $GITHUB_PATH
           # cyan + ipapatch for IPA injection (our sideload pipeline)
-          python3 -m pip install --upgrade ipapatch --break-system-packages
+          python3 -m pip install --upgrade git+https://github.com/pinnm/ipapatch.git --break-system-packages
           python3 -m pip install --upgrade git+https://github.com/asdfzxcvbn/pyzule-rw.git --break-system-packages
 
       - name: Build EeveeSwiftProtobuf.framework from source
