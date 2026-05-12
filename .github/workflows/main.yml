@@ -40,6 +40,19 @@ jobs:
           path: ${{ github.workspace }}/theos
           submodules: recursive
 
+      - name: Cache Theos and Orion
+        uses: actions/cache@v4
+        with:
+          path: |
+            ${{ github.workspace }}/theos/vendor/orion/.build
+            ${{ github.workspace }}/theos/bin/orion
+            .theos/obj
+            theos/lib
+            theos/include
+          key: ${{ runner.os }}-theos-orion-${{ hashFiles('**/Makefile', '**/control', 'Sources/**/*.swift') }}
+          restore-keys: |
+            ${{ runner.os }}-theos-orion-
+
       - name: Install build tools
         run: |
           brew install make dpkg ldid wget
