@@ -8,7 +8,8 @@ TWEAK_NAME = EeveeSpotify
 
 EeveeSpotify_FILES = $(shell find Sources/EeveeSpotify -name '*.swift') $(shell find Sources/EeveeSpotifyC -name '*.m' -o -name '*.c' -o -name '*.mm' -o -name '*.cpp')
 EeveeSpotify_SWIFTFLAGS += -ISources/EeveeSpotifyC/include -Osize -F$(THEOS)/lib/iphoneos
-EeveeSpotify_EXTRA_FRAMEWORKS = EeveeSwiftProtobuf
+
+EeveeSpotify_LDFLAGS += -F$(THEOS)/lib/iphoneos -framework EeveeSwiftProtobuf
 EeveeSpotify_CFLAGS += -fobjc-arc -ISources/EeveeSpotifyC/include -Os
 
 # Sideload compatibility (keychain redirect, group containers, CloudKit) is
