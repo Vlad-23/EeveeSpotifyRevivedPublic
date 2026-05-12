@@ -8,7 +8,13 @@ import Foundation
 // Additionally blocks network endpoints that trigger session invalidation.
 // Extends OAuth token expiry to prevent internal reauth triggers.
 
-struct SessionLogoutHookGroup: HookGroup { }
+// Split into smaller groups so missing selectors/classes don't crash on activation.
+// Spotify occasionally renames/removes private session-related selectors between minor versions.
+// By gating each group behind runtime checks, we keep compatibility across 9.1.x.
+struct SessionLogoutAuthHookGroup: HookGroup { }
+struct SessionLogoutConnectivityHookGroup: HookGroup { }
+struct SessionLogoutAblyHookGroup: HookGroup { }
+struct SessionLogoutNetworkHookGroup: HookGroup { }
 
 // Ably action name mapping for readable logs
 private let ablyActionNames: [Int: String] = [
@@ -21,7 +27,7 @@ private let ablyActionNames: [Int: String] = [
 // MARK: - SPTAuthSessionImplementation — Core Session Hooks
 
 class SPTAuthSessionHook: ClassHook<NSObject> {
-    typealias Group = SessionLogoutHookGroup
+    typealias Group = SessionLogoutAuthHookGroup
     static let targetName = "SPTAuthSessionImplementation"
 
     // orion:new
@@ -91,7 +97,7 @@ class SPTAuthSessionHook: ClassHook<NSObject> {
 // MARK: - SessionServiceImpl (Connectivity_SessionImpl module)
 
 class SessionServiceImplHook: ClassHook<NSObject> {
-    typealias Group = SessionLogoutHookGroup
+    typealias Group = SessionLogoutConnectivityHookGroup
     static let targetName = "_TtC24Connectivity_SessionImpl18SessionServiceImpl"
 
     func automatedLogoutThenLogin() {
@@ -126,7 +132,7 @@ class SessionServiceImplHook: ClassHook<NSObject> {
 // MARK: - SPTAuthLegacyLoginControllerImplementation
 
 class LegacyLoginControllerHook: ClassHook<NSObject> {
-    typealias Group = SessionLogoutHookGroup
+    typealias Group = SessionLogoutAuthHookGroup
     static let targetName = "SPTAuthLegacyLoginControllerImplementation"
 
     func sessionDidLogout(_ session: AnyObject, withReason reason: AnyObject) {
@@ -172,7 +178,7 @@ class LegacyLoginControllerHook: ClassHook<NSObject> {
 // the internal timer from marking the token as expired.
 
 class OauthAccessTokenBridgeHook: ClassHook<NSObject> {
-    typealias Group = SessionLogoutHookGroup
+    typealias Group = SessionLogoutConnectivityHookGroup
     static let targetName = "_TtC24Connectivity_SessionImplP33_831B98CC28223E431E21CD27ADD20AF222OauthAccessTokenBridge"
 
     // Hook the GETTER
@@ -245,7 +251,7 @@ private func extractAblyAction(_ text: String) -> Int? {
 }
 
 class ARTWebSocketTransportHook: ClassHook<NSObject> {
-    typealias Group = SessionLogoutHookGroup
+    typealias Group = SessionLogoutAblyHookGroup
     static let targetName = "ARTWebSocketTransport"
 
     func webSocket(_ ws: AnyObject, didReceiveMessage message: AnyObject) {
@@ -286,7 +292,7 @@ class ARTWebSocketTransportHook: ClassHook<NSObject> {
 // MARK: - Ably SRWebSocket Frame Hook
 
 class ARTSRWebSocketHook: ClassHook<NSObject> {
-    typealias Group = SessionLogoutHookGroup
+    typealias Group = SessionLogoutAblyHookGroup
     static let targetName = "ARTSRWebSocket"
 
     func _handleFrameWithData(_ data: NSData, opCode code: Int) {
@@ -321,8 +327,13 @@ class ARTSRWebSocketHook: ClassHook<NSObject> {
 // MARK: - Global URLSessionTask hook to catch auth traffic bypassing SPTDataLoaderService
 
 class URLSessionTaskResumeHook: ClassHook<NSObject> {
-    typealias Group = SessionLogoutHookGroup
+    typealias Group = SessionLogoutNetworkHookGroup
     static let targetName = "NSURLSessionTask"
+
+    // Flip to true to dump the URLSession-delegate class for every
+    // premium-relevant URL — needed only when investigating a route that
+    // bypasses both currently-hooked delegates.
+    static let enableNetDelegateProbe = false
 
     func resume() {
         if let task = target as? URLSessionTask,
@@ -332,6 +343,41 @@ class URLSessionTaskResumeHook: ClassHook<NSObject> {
             let elapsed = Date().timeIntervalSince(tweakInitTime)
             let elapsedInt = Int(elapsed)
             let path = url.path
+
+            // DISABLED: previously cancelled subsequent bootstraps to defend against
+            // session re-init wiping premium state. Broke fresh-login flow on 9.1.34
+            // (first bootstrap is anonymous signup-screen, second is post-login user state).
+            // Let all bootstraps through; modifyRemoteConfiguration is idempotent.
+            // Diagnostic probe (off by default). Logs the URLSession-delegate
+            // class for any premium-relevant URL — used to discover which
+            // delegate Spotify uses for a given route. We currently hook
+            // SPTDataLoaderService and HttpClientURLSession; if a future
+            // build/region adds a third delegate, flip this on to find its
+            // class name.
+            if URLSessionTaskResumeHook.enableNetDelegateProbe {
+                let isPremiumRelevantURL =
+                    path.contains("bootstrap/v1/bootstrap") ||
+                    path.contains("pam-view-service") ||
+                    path.contains("GetYourPremiumBadge") ||
+                    path.contains("GetPlanOverview") ||
+                    path.contains("GetPremiumPlanRow") ||
+                    path.contains("v1/customize")
+
+                if isPremiumRelevantURL {
+                    let sessionDelegate: String = {
+                        if let s = task.value(forKey: "session") as? URLSession, let d = s.delegate {
+                            return NSStringFromClass(type(of: d as AnyObject))
+                        }
+                        return "<no-session-delegate>"
+                    }()
+                    let tag = path.contains("bootstrap/v1/bootstrap") ? "Bootstrap" :
+                              (path.contains("GetYourPremiumBadge")  ? "PAM.Badge"  :
+                              (path.contains("GetPlanOverview")      ? "PAM.PlanOverview" :
+                              (path.contains("GetPremiumPlanRow")    ? "PAM.PlanRow" :
+                              (path.contains("pam-view-service")     ? "PAM.Other" : "Customize"))))
+                    writeDebugLog("[NET][\(tag)] host=\(host) path=\(path) at \(elapsedInt)s sessDelegate=\(sessionDelegate)")
+                }
+            }
 
             // Log auth-related requests for diagnostics
             let isAuthRelated = host.contains("login5") ||
@@ -377,11 +423,8 @@ class URLSessionTaskResumeHook: ClassHook<NSObject> {
                     task.cancel()
                     return
                 }
-                if elapsed > 30 && path.contains("bootstrap/v1/bootstrap") {
-                    writeDebugLog("[NET] Cancelled bootstrap re-fetch at \(elapsedInt)s")
-                    task.cancel()
-                    return
-                }
+                // (Bootstrap is logged by the premium-relevant probe above —
+                // dropped duplicate "(late)" log to keep output clean.)
                 // Block periodic re-fetches of the customize endpoint.
                 // Spotify's RemoteConfigurationSDK AuthFetcher re-fetches the customize
                 // endpoint after minimumFetchIntervalSeconds (typically a few hours).
