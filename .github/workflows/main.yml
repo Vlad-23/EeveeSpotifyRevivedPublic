@@ -49,14 +49,16 @@ jobs:
           # 1. Install pyzule-rw (still needed for the main injection)
           python3 -m pip install --upgrade https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip --break-system-packages
           
-          # 2. Download and extract the missing Protobuf dependency
+          # 2. Download and extract the Protobuf dependency
           wget https://github.com/whoeevee/EeveeSpotifyReborn/releases/download/swift6.2.2/org.swift.protobuf.swiftprotobuf_1.29.0_iphoneos-arm64.deb
           dpkg-deb -x org.swift.protobuf.swiftprotobuf_1.29.0_iphoneos-arm64.deb ./protobuf_temp
           
-          # 3. Inject the module into the Theos vendor paths
-          # This guarantees 'make' sees the module during compilation
-          mkdir -p $THEOS/include
+          # 3. THE CRITICAL CHANGE: Map files into Theos internal paths
+          # We create the directories inside your Theos installation
+          mkdir -p $THEOS/include/EeveeSwiftProtobuf
           mkdir -p $THEOS/lib/iphoneos
+          
+          # Move the Swift module and headers where the cross-compiler looks
           cp -r ./protobuf_temp/usr/include/* $THEOS/include/ 2>/dev/null || true
           cp -r ./protobuf_temp/usr/lib/* $THEOS/lib/ 2>/dev/null || true
 
