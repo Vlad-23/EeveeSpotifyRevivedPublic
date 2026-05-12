@@ -62,18 +62,17 @@ jobs:
           # 1. Install pyzule-rw (still needed for the main injection)
           python3 -m pip install --upgrade https://github.com/asdfzxcvbn/pyzule-rw/archive/main.zip --break-system-packages
           
-          # 2. Download and extract the Protobuf dependency
-          wget https://github.com/whoeevee/EeveeSpotifyReborn/releases/download/swift6.2.2/org.swift.protobuf.swiftprotobuf_1.29.0_iphoneos-arm64.deb
-          dpkg-deb -x org.swift.protobuf.swiftprotobuf_1.29.0_iphoneos-arm64.deb ./protobuf_temp
-          
-          # 3. THE CRITICAL CHANGE: Map files into Theos internal paths
-          # We create the directories inside your Theos installation
-          mkdir -p $THEOS/include/EeveeSwiftProtobuf
+          # 2. Extract specifically the .framework folder
+          # Theos needs the whole .framework bundle to resolve Swift modules
           mkdir -p $THEOS/lib/iphoneos
           
-          # Move the Swift module and headers where the cross-compiler looks
-          cp -r ./protobuf_temp/usr/include/* $THEOS/include/ 2>/dev/null || true
-          cp -r ./protobuf_temp/usr/lib/* $THEOS/lib/ 2>/dev/null || true
+          # Find the framework folder in the deb and move it to Theos
+          FRAMEWORK_PATH=$(find ./protobuf_temp -type d -name "EeveeSwiftProtobuf.framework" | head -1)
+          cp -r "$FRAMEWORK_PATH" $THEOS/lib/iphoneos/
+          
+          # 3. Also copy the headers for the C/Obj-C side
+          mkdir -p $THEOS/include/EeveeSwiftProtobuf
+          find ./protobuf_temp -name "*.h" -exec cp {} $THEOS/include/EeveeSwiftProtobuf/ \;
 
           
           
