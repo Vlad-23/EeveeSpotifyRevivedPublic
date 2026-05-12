@@ -7,9 +7,9 @@ include $(THEOS)/makefiles/common.mk
 TWEAK_NAME = EeveeSpotify
 
 EeveeSpotify_FILES = $(shell find Sources/EeveeSpotify -name '*.swift') $(shell find Sources/EeveeSpotifyC -name '*.m' -o -name '*.c' -o -name '*.mm' -o -name '*.cpp')
-EeveeSpotify_SWIFTFLAGS = -ISources/EeveeSpotifyC/include -Osize
+EeveeSpotify_SWIFTFLAGS += -ISources/EeveeSpotifyC/include -Osize -F$(THEOS)/lib/iphoneos
 EeveeSpotify_EXTRA_FRAMEWORKS = EeveeSwiftProtobuf
-EeveeSpotify_CFLAGS = -fobjc-arc -ISources/EeveeSpotifyC/include -Os
+EeveeSpotify_CFLAGS += -fobjc-arc -ISources/EeveeSpotifyC/include -Os
 
 # Sideload compatibility (keychain redirect, group containers, CloudKit) is
 # handled out-of-process by modules/zxPluginsInject — LC-injected via ipapatch
@@ -22,7 +22,7 @@ internal-stage::
 	# SwiftProtobuf so the @objc class names don't collide with the
 	# SwiftProtobuf statically embedded in SpotifyShared.framework.
 	mkdir -p $(THEOS_STAGING_DIR)/Library/Frameworks
-	cp -r $(THEOS)/lib/iphone/rootless/EeveeSwiftProtobuf.framework $(THEOS_STAGING_DIR)/Library/Frameworks/
+	cp -r $(THEOS)/lib/iphoneos/EeveeSwiftProtobuf.framework $(THEOS_STAGING_DIR)/Library/Frameworks/
 
 # Build EeveeSwiftProtobuf.framework from apple/swift-protobuf source. Run
 # this once before `make package`. Re-run if SWIFTPROTOBUF_VERSION changes
